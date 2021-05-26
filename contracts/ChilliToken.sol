@@ -1,8 +1,8 @@
 pragma solidity 0.7.5;
 
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-solidity/contracts/access/AccessControl.sol";
-import "openzeppelin-solidity/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./IChildToken.sol";
 import "./NativeMetaTransaction.sol";
 
@@ -18,6 +18,8 @@ contract ChilliToken is
     bytes32 public constant PERMIT_TYPEHASH = keccak256(
         "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
     );
+
+    bool withdrawAllowed;
 
     modifier only(bytes32 role) {
         require(
@@ -37,6 +39,7 @@ contract ChilliToken is
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(DEPOSITOR_ROLE, childChainManager);
         _mint(_msgSender(), amount);
+        withdrawAllowed == false;
     }
 
     /**
@@ -113,8 +116,8 @@ contract ChilliToken is
         uint256 amount
     )
         external
-        only(DEFAULT_ADMIN_ROLE)
     {
+        require(withdrawAllowed, "ChiliToken: transfer to mainnet prohibited");
         _burn(user, amount);
     }
 
@@ -124,6 +127,22 @@ contract ChilliToken is
 
     function unpause() external only(DEFAULT_ADMIN_ROLE) {
         _unpause();
+    }
+
+    /**
+     * @notice set to true when tokens can be withdrawn to mainnet
+     * @dev Should be callable only by ChildChainManager
+     * Set to false initially to restrict transfers to mainnet
+     * Manages whether tokens can be withdrawn to mainnet by holders on matic
+     * Make sure minting is done only by this function
+     */
+
+    function allowWithdraw() external only(DEPOSITOR_ROLE) {
+        withdrawAllowed == true;
+    }
+
+    function pauseWithdraw() external only(DEPOSITOR_ROLE) {
+        withdrawAllowed == false;
     }
 
     function mint(
